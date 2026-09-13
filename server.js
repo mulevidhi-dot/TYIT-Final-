@@ -1,17 +1,29 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
 const path = require('path');
 
 const app = express();
 app.use(express.json());
 
-// Serve static HTML/JS/CSS files directly from the root project folder
+// Serve static files (HTML, JS, CSS)
 app.use(express.static(__dirname));
 
-// 1. INITIALIZE DATABASE
-const db = new sqlite3.Database('./database.sqlite', (err) => {
-    if (err) console.error('Database opening error:', err.message);
-    else console.log('Connected to SQLite database.');
+// 1. INITIALIZE AIVEN POSTGRESQL CONNECTION
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: {
+        rejectUnauthorized: false // Required for Aiven SSL connections
+    }
+});
+
+// Test connection
+pool.connect((err, client, release) => {
+    if (err) {
+        console.error('Error connecting to Aiven PostgreSQL:', err.stack);
+    } else {
+        console.log('Connected to Aiven PostgreSQL database successfully!');
+        release();
+    }
 });
 
 // 2. NUTRITION DB & HELPER FUNCTION
@@ -52,127 +64,166 @@ function estimateNutrients(mealText) {
     return total;
 }
 
-// 3. CREATE TABLES
-db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE,
-        password TEXT,
-        age INTEGER DEFAULT 25,
-        gender TEXT DEFAULT 'male',
-        weight REAL DEFAULT 70,
-        height REAL DEFAULT 170,
-        bmr INTEGER DEFAULT 1650
-    )`);
+// 3. CREATE TABLES IN POSTGRESQL
+const initDb = async () => {
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(255) UNIQUE NOT NULL,
+                password VARCHAR(255) NOT NULL,
+                age INT DEFAULT 25,
+                gender VARCHAR(50) DEFAULT 'male',
+                weight REAL DEFAULT 70,
+                height REAL DEFAULT 170,
+                bmr INT DEFAULT 1650
+            );
+        `);
 
-    db.run(`CREATE TABLE IF NOT EXISTS daily_health (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        date TEXT,
-        water INTEGER,
-        meals INTEGER,
-        exercise INTEGER,
-        sleep REAL,
-        meal TEXT,
-        calories INTEGER DEFAULT 0,
-        protein INTEGER DEFAULT 0,
-        carbs INTEGER DEFAULT 0,
-        fat INTEGER DEFAULT 0,
-        UNIQUE(user_id, date)
-    )`);
-});
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS daily_health (
+                id SERIAL PRIMARY KEY,
+                user_id INT REFERENCES users(id),
+                date VARCHAR(10) NOT NULL,
+                water INT,
+                meals INT,
+                exercise INT,
+                sleep REAL,
+                meal TEXT,
+                calories INT DEFAULT 0,
+                protein INT DEFAULT 0,
+                carbs INT DEFAULT 0,
+                fat INT DEFAULT 0,
+                UNIQUE(user_id, date)
+            );
+        `);
+        console.log("Database tables verified/created successfully.");
+    } catch (err) {
+        console.error("Error creating tables:", err.message);
+    }
+};
+initDb();
 
 // 4. AUTHENTICATION ROUTES
-app.post('/api/register', (req, res) => {
+app.post('/api/register', async (req, res) => {
     const { username, password } = req.body;
-    db.run(`INSERT INTO users (username, password) VALUES (?, ?)`, [username, password], function (err) {
-        if (err) return res.status(400).json({ error: 'Username already exists' });
-        res.json({ id: this.lastID, username });
-    });
+    try {
+        const result = await pool.query(
+            'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id, username',
+            [username, password]
+        );
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(400).json({ error: 'Username already exists' });
+    }
 });
 
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
     const { username, password } = req.body;
-    db.get(`SELECT id, username FROM users WHERE username = ? AND password = ?`, [username, password], (err, user) => {
-        if (err || !user) return res.status(401).json({ error: 'Invalid credentials' });
-        res.json(user);
-    });
+    try {
+        const result = await pool.query(
+            'SELECT id, username FROM users WHERE username = $1 AND password = $2',
+            [username, password]
+        );
+        if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
+        res.json(result.rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 5. USER PROFILE & BMR ROUTES
-app.post('/api/user/profile', (req, res) => {
+app.post('/api/user/profile', async (req, res) => {
     const { userId, age, gender, weight, height } = req.body;
     
-    // Mifflin-St Jeor Equation for BMR calculation
     let bmr = (10 * weight) + (6.25 * height) - (5 * age);
     bmr = (gender === 'female') ? Math.round(bmr - 161) : Math.round(bmr + 5);
 
-    const sql = `UPDATE users SET age = ?, gender = ?, weight = ?, height = ?, bmr = ? WHERE id = ?`;
-    db.run(sql, [age, gender, weight, height, bmr, userId], function (err) {
-        if (err) return res.status(500).json({ error: err.message });
+    try {
+        await pool.query(
+            'UPDATE users SET age = $1, gender = $2, weight = $3, height = $4, bmr = $5 WHERE id = $6',
+            [age, gender, weight, height, bmr, userId]
+        );
         res.json({ message: 'Profile updated successfully!', bmr });
-    });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.get('/api/user/profile/:userId', (req, res) => {
-    db.get(`SELECT age, gender, weight, height, bmr FROM users WHERE id = ?`, [req.params.userId], (err, user) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(user || {});
-    });
+app.get('/api/user/profile/:userId', async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT age, gender, weight, height, bmr FROM users WHERE id = $1',
+            [req.params.userId]
+        );
+        res.json(result.rows[0] || {});
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // 6. HEALTH DATA ROUTES
-app.post('/api/health', (req, res) => {
+app.post('/api/health', async (req, res) => {
     const { userId, water, meals, exercise, sleep, meal } = req.body;
     const today = new Date().toISOString().split('T')[0];
-
     const nutrients = estimateNutrients(meal);
 
-    const sql = `INSERT INTO daily_health 
-                 (user_id, date, water, meals, exercise, sleep, meal, calories, protein, carbs, fat)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                 ON CONFLICT(user_id, date) DO UPDATE SET
-                 water=excluded.water, meals=excluded.meals, exercise=excluded.exercise, 
-                 sleep=excluded.sleep, meal=excluded.meal, calories=excluded.calories,
-                 protein=excluded.protein, carbs=excluded.carbs, fat=excluded.fat`;
+    const sql = `
+        INSERT INTO daily_health 
+        (user_id, date, water, meals, exercise, sleep, meal, calories, protein, carbs, fat)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        ON CONFLICT(user_id, date) DO UPDATE SET
+        water=EXCLUDED.water, meals=EXCLUDED.meals, exercise=EXCLUDED.exercise, 
+        sleep=EXCLUDED.sleep, meal=EXCLUDED.meal, calories=EXCLUDED.calories,
+        protein=EXCLUDED.protein, carbs=EXCLUDED.carbs, fat=EXCLUDED.fat`;
 
-    db.run(sql, [
-        userId, today, water, meals, exercise, sleep, meal,
-        nutrients.calories, nutrients.protein, nutrients.carbs, nutrients.fat
-    ], function (err) {
-        if (err) {
-            console.error("Database Save Error:", err.message);
-            return res.status(500).json({ error: err.message });
-        }
+    try {
+        await pool.query(sql, [
+            userId, today, water, meals, exercise, sleep, meal,
+            nutrients.calories, nutrients.protein, nutrients.carbs, nutrients.fat
+        ]);
         res.json({ message: 'Saved successfully!', nutrients });
-    });
+    } catch (err) {
+        console.error("Database Save Error:", err.message);
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.get('/api/health/today/:userId', (req, res) => {
+app.get('/api/health/today/:userId', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
-    db.get(`SELECT * FROM daily_health WHERE user_id = ? AND date = ?`, [req.params.userId, today], (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(row || null);
-    });
+    try {
+        const result = await pool.query(
+            'SELECT * FROM daily_health WHERE user_id = $1 AND date = $2',
+            [req.params.userId, today]
+        );
+        res.json(result.rows[0] || null);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.get('/api/health/history/:userId', (req, res) => {
-    db.all(`SELECT * FROM daily_health WHERE user_id = ? ORDER BY date DESC`, [req.params.userId], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows || []);
-    });
+app.get('/api/health/history/:userId', async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT * FROM daily_health WHERE user_id = $1 ORDER BY date DESC',
+            [req.params.userId]
+        );
+        res.json(result.rows || []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
-// Fetch last 7 days health logs for charts
-app.get('/api/health/weekly/:userId', (req, res) => {
-    const sql = `SELECT date, water, sleep, calories 
-                 FROM daily_health 
-                 WHERE user_id = ? 
-                 ORDER BY date ASC 
-                 LIMIT 7`;
-    db.all(sql, [req.params.userId], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows || []);
-    });
+
+app.get('/api/health/weekly/:userId', async (req, res) => {
+    try {
+        const result = await pool.query(
+            'SELECT date, water, sleep, calories FROM daily_health WHERE user_id = $1 ORDER BY date ASC LIMIT 7',
+            [req.params.userId]
+        );
+        res.json(result.rows || []);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Root Route
@@ -180,6 +231,6 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// 7. START SERVER
+// 7. START SERVER (Dynamic Port binding for Render)
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
