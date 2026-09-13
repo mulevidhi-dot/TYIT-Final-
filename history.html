@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriCare - History</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: #ffffff;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .history-table th, .history-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .history-table th {
+            background-color: #4caf70;
+            color: white;
+        }
+
+        .history-table tr:hover {
+            background-color: #f5f5f5;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="app">
+        <header>
+            <h1>📜 Health Logs History</h1>
+            <p>View all your past entries</p>
+        </header>
+
+        <main>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <a href="index.html" class="main-button" style="width: auto; padding: 8px 16px; margin: 0;">← Back to Dashboard</a>
+            </div>
+
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Water</th>
+                        <th>Meals</th>
+                        <th>Exercise</th>
+                        <th>Sleep</th>
+                        <th>Meal Log</th>
+                    </tr>
+                </thead>
+                <tbody id="historyTableBody">
+                    <tr>
+                        <td colspan="6" style="text-align: center;">Loading history...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        // Load history automatically when opening history.html
+        window.addEventListener('DOMContentLoaded', loadHistory);
+    </script>
+</body>
+
+</html>

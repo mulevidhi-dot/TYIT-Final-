@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NutriCare</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+    <div class="app">
+
+        <header>
+            <h1>🌿 NutriCare</h1>
+            <p>Your Daily Health Tracker</p>
+        </header>
+
+        <main>
+           
+            <!-- Authentication Screen -->
+            <div id="authScreen" class="form-box">
+                <h2 id="authTitle">Login to NutriCare</h2>
+                <label>Username</label>
+                <input type="text" id="username" placeholder="Enter username">
+                <label>Password</label>
+                <input type="password" id="password" placeholder="Enter password">
+                <button onclick="handleAuth()" id="authBtn" style="margin-top: 15px;">Login</button>
+                <p style="text-align: center; margin-top: 15px; cursor: pointer; color: #4caf70;" onclick="toggleAuthMode()">
+                    <span id="authToggleText">Need an account? Register here</span>
+                </p>
+            </div>
+
+            <!-- Main Dashboard Screen -->
+            <div id="dashboardScreen" style="display: none;">
+                
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2>Welcome, <span id="currentUserDisplay">User</span> 👋</h2>
+                    <button onclick="logout()" style="width: auto; padding: 6px 12px; background: #e53935;">Logout</button>
+                </div>
+
+                <p class="intro">
+                    Keep track of your daily healthy habits.
+                </p>
+
+                <!-- Health Score -->
+                <div class="score-box">
+                    <h3>Today's Health Score</h3>
+                    <div class="score" id="healthScore">0%</div>
+                    <p>Start adding your daily information!</p>
+                </div>
+
+                <!-- Daily Metric Cards -->
+                <div class="cards">
+                    <div class="card">
+                        <span>💧</span>
+                        <h3>Water</h3>
+                        <p id="waterValue">0 / 8 glasses</p>
+                    </div>
+
+                    <div class="card">
+                        <span>🍎</span>
+                        <h3>Meals</h3>
+                        <p id="mealsValue">0 / 3 meals</p>
+                    </div>
+
+                    <div class="card">
+                        <span>🚶</span>
+                        <h3>Exercise</h3>
+                        <p id="exerciseValue">0 minutes</p>
+                    </div>
+
+                    <div class="card">
+                        <span>😴</span>
+                        <h3>Sleep</h3>
+                        <p id="sleepValue">0 hours</p>
+                    </div>
+
+                    <div class="card">
+                        <span>🥗</span>
+                        <h3>Meal Log</h3>
+                        <p id="mealValue">No meal logged</p>
+                    </div>
+
+                    <!-- BMR Tracker Card -->
+                    <div class="card">
+                        <span>🔥</span>
+                        <h3>BMR & Calorie Target</h3>
+                        <p id="bmrDisplay">1,650 kcal/day</p>
+                        <button class="main-button" onclick="openProfileModal()">Update Body Metrics</button>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 15px;">
+                    <a href="history.html" class="main-button" style="background: #2196F3;">📜 View History</a>
+                    <a href="add-data.html" class="main-button" style="background: #4caf50;">+ Add Today's Data</a>
+                </div>
+
+                <!-- Weekly Progress Chart Card -->
+                <div class="card" style="margin-top: 20px;">
+                    <h3>Weekly Health Trends</h3>
+                    <div style="position: relative; height: 300px; width: 100%;">
+                        <canvas id="weeklyChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="tip-box" style="margin-top: 15px;">
+                    <h3>💡 Daily Health Tip</h3>
+                    <p id="healthTip">
+                        Drink enough water throughout the day to stay hydrated.
+                    </p>
+                </div>
+
+                <div class="summary-box" style="margin-top: 15px;">
+                    <h3>📊 Today's Summary</h3>
+                    <p id="healthSummary">
+                        Add your daily information to see your health summary.
+                    </p>
+                </div>
+
+            </div>
+           
+        </main>
+
+    </div>
+
+    <!-- BMR Profile Modal -->
+    <div id="profileModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeProfileModal()">&times;</span>
+            <h2>Update Body Metrics</h2>
+            <form id="profileForm" onsubmit="saveProfile(event)">
+                <label for="age">Age (years):</label>
+                <input type="number" id="age" required min="10" max="120" placeholder="25">
+
+                <label for="gender">Gender:</label>
+                <select id="gender" required>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                </select>
+
+                <label for="weight">Weight (kg):</label>
+                <input type="number" id="weight" step="0.1" required placeholder="70">
+
+                <label for="height">Height (cm):</label>
+                <input type="number" id="height" step="0.1" required placeholder="170">
+
+                <button type="submit" class="main-button" style="width: 100%; margin-top: 15px;">Calculate & Save BMR</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>

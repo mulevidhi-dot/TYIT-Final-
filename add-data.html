@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Add Health Data - NutriCare</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="app">
+
+        <header>
+            <h1>🌿 NutriCare</h1>
+            <p>Add Your Daily Health Data</p>
+        </header>
+
+        <main>
+
+            <h2>Today's Information</h2>
+
+            <div class="form-box">
+
+                <label>💧 Water (glasses)</label>
+                <input type="number" id="water" min="0" placeholder="Example: 5">
+
+                <label>🍎 Meals</label>
+                <input type="number" id="meals" min="0" placeholder="Example: 3">
+
+                <label>🚶 Exercise (minutes)</label>
+                <input type="number" id="exercise" min="0" placeholder="Example: 30">
+
+                <label>😴 Sleep (hours)</label>
+                <input type="number" id="sleep" min="0" placeholder="Example: 7">
+
+                <label>🥗 Add meal</label>
+                <input type="text" id="meal" placeholder="Example: dal and rice">
+                
+
+                <button onclick="saveData()">
+                    Save Today's Data
+                </button>
+
+                <a href="index.html" class="back-button">
+                    ← Back to Home
+                </a>
+
+            </div>
+
+        </main>
+
+    </div>
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>
