@@ -9,11 +9,16 @@ app.use(express.json());
 app.use(express.static(__dirname));
 
 // 1. INITIALIZE AIVEN POSTGRESQL CONNECTION
+// 1. INITIALIZE SUPABASE/POSTGRESQL CONNECTION
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: {
-        rejectUnauthorized: false // Required for Aiven SSL connections
-    }
+        rejectUnauthorized: false
+    },
+    // Required for Supabase Transaction Pooler (port 6543)
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000
 });
 
 // Test connection
